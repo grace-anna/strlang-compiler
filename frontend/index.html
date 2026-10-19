@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0b1020">
+  <title>SwitchLab — Compiler Front End</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="app-shell">
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-mark" aria-hidden="true"><span></span><span></span><span></span></div>
+        <div class="brand-copy">
+          <h1>Switch<span>Lab</span></h1>
+          <p class="subtitle">Explore the structure of switch-case programs</p>
+        </div>
+      </div>
+    </header>
+
+    <main>
+      <section id="fatal-error" class="fatal-error" hidden role="alert">
+        <strong class="fatal-title">Compiler unavailable</strong>
+        <p class="fatal-detail"></p>
+      </section>
+
+      <div class="workspace">
+        <section class="editor-panel panel" aria-labelledby="source-heading">
+          <div class="panel-heading editor-heading">
+            <div class="heading-title">
+              <span class="section-kicker">01</span>
+              <div><h2 id="source-heading">Source code</h2><p>Write or load a switch-case program</p></div>
+            </div>
+            <label class="file-button" for="file-input"><span aria-hidden="true">↥</span> Open file</label>
+            <input id="file-input" type="file" accept=".c,.txt,text/plain" hidden>
+          </div>
+
+          <div class="editor-meta"><span class="file-pill"><span class="file-dot"></span> main.c</span><span class="editor-language">C-like subset</span></div>
+          <label class="sr-only" for="source-editor">C source code</label>
+          <textarea id="source-editor" spellcheck="false" autocapitalize="off" autocomplete="off" aria-label="C source code" placeholder="switch (x) {&#10;  case 1:&#10;    y = 10; break;&#10;  default:&#10;    y = 0; break;&#10;}"></textarea>
+
+          <div class="editor-controls">
+            <div class="sample-control"><label class="sr-only" for="example-select">Load sample program</label><span class="control-icon" aria-hidden="true">⌄</span><select id="example-select"></select></div>
+            <button id="btn-clear" class="button button-quiet" type="button">Clear</button>
+  
+            <button id="btn-analyze" class="button button-primary" type="button"><span aria-hidden="true">▶</span> Analyze</button>
+          </div>
+          <div class="editor-footer"><span><kbd>Ctrl</kbd> + <kbd>Enter</kbd> to analyze</span><span class="scope-note">Supports expressions, switch, case, default, break</span></div>
+        </section>
+
+        <section class="results-panel panel" aria-labelledby="results-heading">
+          <div class="panel-heading results-heading">
+            <div class="heading-title">
+              <span class="section-kicker">02</span>
+              <div><h2 id="results-heading">Analysis</h2><p>Compiler phase results</p></div>
+            </div>
+          </div>
+
+          <section class="diagnostics-panel" aria-label="Compiler diagnostics">
+            <div class="diagnostics-heading">
+              <div><h3>Diagnostics</h3></div>
+              <span id="console-status" class="console-status">Awaiting compilation</span>
+            </div>
+            <div id="console-messages" class="console-messages"><p class="empty-state">Analyze your source.</p></div>
+          </section>
+
+          <div class="tabs" role="tablist" aria-label="Analysis result categories">
+            <button role="tab" id="tab-tokens" data-tab="tokens" aria-selected="true" class="tab--active" type="button">Tokens</button>
+            <button role="tab" id="tab-parse" data-tab="parse" aria-selected="false" type="button">Syntax</button>
+            <button role="tab" id="tab-ast" data-tab="ast" aria-selected="false" type="button">AST</button>
+            <button role="tab" id="tab-semantics" data-tab="semantics" aria-selected="false" type="button">Semantic checks</button>
+          </div>
+
+          <section class="tab-panel tab-panel--active" data-tab="tokens" role="tabpanel" aria-labelledby="tab-tokens" aria-hidden="false">
+            <div class="panel-intro"><div><h3>Lexical tokens</h3><p>Each token recognized from the source, in order.</p></div><span class="mini-tag">LEXER</span></div>
+            <div class="table-wrap">
+              <table><thead><tr><th>#</th><th>Token type</th><th>Lexeme</th><th>Line</th><th>Col</th></tr></thead><tbody id="tokens-body"></tbody></table>
+            </div>
+            <p id="tokens-empty" class="empty-state">Run Analyze to inspect the token stream.</p>
+          </section>
+
+          <section class="tab-panel" data-tab="parse" role="tabpanel" aria-labelledby="tab-parse" aria-hidden="true">
+            <div class="panel-intro"><div><h3>Syntax analysis</h3><p>Whether the input matches the implemented grammar.</p></div><span class="mini-tag">PARSER</span></div>
+            <div id="parse-status" class="parse-status parse-status--idle"><span class="status-icon">◷</span> Awaiting analysis</div>
+            <pre id="parse-error" class="error-detail" hidden></pre>
+          </section>
+
+          <section class="tab-panel" data-tab="ast" role="tabpanel" aria-labelledby="tab-ast" aria-hidden="true">
+            <div class="panel-intro"><div><h3>Abstract syntax tree</h3></div><span class="mini-tag">AST</span></div>
+            <div id="ast-root"></div>
+            <p id="ast-empty" class="empty-state">No AST yet. Analyze a valid program first.</p>
+          </section>
+
+          <section class="tab-panel" data-tab="semantics" role="tabpanel" aria-labelledby="tab-semantics" aria-hidden="true">
+            <div class="panel-intro"><div><h3>Semantic checks</h3><p>Checks implemented by this mini compiler.</p></div><span class="mini-tag">SEMANTICS</span></div>
+            <div id="sem-status" class="sem-status sem-status--idle"><span class="status-icon">◷</span> Awaiting analysis</div>
+            <div id="sem-list"></div>
+          </section>
+        </section>
+      </div>
+
+    </main>
+    <footer><span class="footer-mark">SL</span><span>SwitchLab</span><span class="footer-separator">·</span><span>Browser-based JavaScript compiler · Runs locally</span></footer>
+  </div>
+  <script src="engines/js-compiler.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
