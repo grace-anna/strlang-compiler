@@ -1,46 +1,97 @@
-# SwitchLab Language Grammar
+# Implemented Grammar
 
-The JavaScript compiler accepts a small C-like language, not full ISO C. The grammar below is descriptive; the implementation is a browser-side lexer and recursive-descent / precedence-climbing parser in `frontend/engines/js-compiler.js`.
+This document describes the language accepted by `parser.y` and `lexer.l`. The compiler is a small C-like front end, not a complete ISO C compiler. A nonempty program must contain one or more top-level switch statements. A top-level `break;` is also parsed deliberately so semantic analysis can report “break outside switch.” Standalone assignments, expressions, and empty statements are rejected at the top level; assignments, empty statements, and braced statement blocks are accepted inside switch case/default bodies.
 
-```text
-program          := top_statement+
-top_statement    := switch_stmt | BREAK ';'
-switch_stmt      := SWITCH '(' expr ')' '{' case_clause* default_clause? '}'
-case_clause      := CASE signed_integer ':' statement*
-default_clause   := DEFAULT ':' statement*
-signed_integer   := NUMBER | '-' NUMBER | '+' NUMBER
-statement        := switch_stmt
-                  | BREAK ';'
-                  | IDENT '=' expr ';'
-                  | ';'
-                  | '{' statement* '}'
+## Yacc/Bison productions
+
+```yacc
+program:
+    top_statement
+  | program top_statement
+;
+
+top_statement:
+    switch_stmt
+  | BREAK ';'
+;
+
+stmt_list:
+    %empty
+  | stmt_list statement
+;
+
+statement:
+    switch_stmt
+  | BREAK ';'
+  | IDENT '=' expr ';'
+  | ';'
+  | '{' stmt_list '}'
+;
+
+switch_stmt:
+    SWITCH '(' expr ')' '{' case_list default_opt '}'
+;
+
+case_list:
+    %empty
+  | case_list case_clause
+;
+
+case_clause:
+    CASE case_constant ':' stmt_list
+;
+
+default_opt:
+    %empty
+  | default_clause
+;
+
+default_clause:
+    DEFAULT ':' stmt_list
+;
+
+case_constant:
+    NUMBER
+  | '-' NUMBER
+  | '+' NUMBER
+;
+
+expr:
+    expr '+' expr
+  | expr '-' expr
+  | expr '*' expr
+  | expr '/' expr
+  | expr '%' expr
+  | expr EQ expr
+  | expr NE expr
+  | expr '<' expr
+  | expr '>' expr
+  | expr LE expr
+  | expr GE expr
+  | expr AND expr
+  | expr OR expr
+  | '-' expr %prec UMINUS
+  | '+' expr %prec UMINUS
+  | '!' expr %prec UMINUS
+  | NUMBER
+  | IDENT
+  | '(' expr ')'
+;
 ```
 
-## Expressions
+## Precedence and associativity
 
-Binary operators are left-associative and have the following precedence, from lowest to highest:
+From lowest to highest: `||`, `&&`, `==` / `!=`, `<` / `>` / `<=` / `>=`, `+` / `-`, `*` / `/` / `%`, then unary `-`, unary `+`, and `!`. Binary operators are left-associative; unary operators are right-associative.
 
-1. `||`
-2. `&&`
-3. `==`, `!=`
-4. `<`, `>`, `<=`, `>=`
-5. `+`, `-`
-6. `*`, `/`, `%`
-7. Unary `+`, `-`, `!`
+## Implemented semantic checks
 
-Primary expressions are integer literals, identifiers, and parenthesized expressions.
+- `break` outside a switch is reported as a semantic error.
+- Duplicate integer case values within one switch are reported, with source lines.
+- A second `default` is rejected by syntax analysis because the implemented grammar allows only one trailing default clause.
 
-## Semantic checks
+## Known limitations
 
-- A `break;` outside a switch is reported as an error.
-- Duplicate numeric case values within the same switch are reported with both source lines. For example, `case 1:` and `case +1:` are duplicates.
-- Nested switches are checked independently.
-- A second `default` clause is rejected by syntax analysis.
-
-## Lexer behavior
-
-The lexer recognizes `switch`, `case`, `default`, and `break`; identifiers; decimal integer literals; operators; delimiters; line comments (`//`); and block comments (`/* ... */`). Unsupported characters, floating-point literals, oversized integer literals, and unterminated block comments produce lexical diagnostics.
-
-## Limitations
-
-There are no declarations, functions, loops, conditionals, arrays, strings, floating-point values, or full C semantics. The parser does not perform symbol-table, type, or undeclared-variable checks. Braced statement blocks are syntactically accepted but flattened in the AST, so their braces are not represented as separate nodes.
+- Case labels must be signed integer literals, not identifiers or constant expressions.
+- The language does not yet parse variable declarations or enforce declared-variable/type/scope rules; a symbol table is therefore not claimed.
+- There are no functions, loops, `if` statements, arrays, strings, floating-point values, increment/decrement operators, or full C declaration syntax.
+- The AST stores switch and assignment expressions structurally, preserving operator precedence and source locations. Braced statement blocks are accepted but their braces are not stored as separate AST nodes.

@@ -1,6 +1,6 @@
 /**
- * app.js — Frontend interactions for the browser-based JavaScript compiler.
- * Runs the browser JavaScript compiler and displays tokens, syntax, AST, and diagnostics.
+ * app.js — Frontend interactions for the Flex/Bison compiler backend.
+ * Sends source to the backend engine and displays tokens, syntax, AST, and diagnostics.
  */
 
 'use strict';
@@ -202,7 +202,7 @@ function bootstrapEngine() {
     elBtnAnalyze.disabled = true;
     showFatalError(
       'No compiler engine loaded.',
-      'Check the browser console and ensure index.html loads the JavaScript compiler script before app.js.'
+      'Check the browser console and ensure index.html loads the backend engine script before app.js.'
     );
     return;
   }
@@ -441,6 +441,7 @@ function renderParse(syntax) {
     const stageLabels = {
       lexical: 'Lexical error - invalid token',
       syntax: 'Syntax error - parse failed',
+      backend: 'Backend error - compiler unavailable',
       input: 'Input error - source could not be read'
     };
     elParseStatus.innerHTML = `<span class="status-icon">❌</span> ${stageLabels[syntax.stage || 'syntax'] || 'Analysis failed'}`;
@@ -475,7 +476,7 @@ function renderAst(ast) {
 
 /**
  * Recursively build a nested <ul><li> tree from an ASTNode array.
- * @param {Object[]} nodes
+ * @param {import('./engine.interface.js').ASTNode[]} nodes
  */
 function buildAstList(nodes) {
   const ul = document.createElement('ul');
@@ -630,7 +631,7 @@ function renderConsole(result) {
   if (result.syntax.ok) messages.push({ kind: 'success', text: 'Syntax analysis successful.' });
   else {
     const stage = result.syntax.stage || 'syntax';
-    const prefixByStage = { lexical: 'Lexical error', syntax: 'Syntax error', input: 'Input error' };
+    const prefixByStage = { lexical: 'Lexical error', syntax: 'Syntax error', backend: 'Backend/API error', input: 'Input error' };
     messages.push({ kind: 'error', text: `${prefixByStage[stage] || 'Analysis error'}: ${result.syntax.error || 'No details provided.'}` });
   }
   for (const d of (result.semantics.diagnostics || [])) messages.push({ kind: d.kind || 'error', text: d.message });
