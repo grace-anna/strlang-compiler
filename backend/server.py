@@ -20,10 +20,11 @@ def json_bytes(value):
     return json.dumps(value, ensure_ascii=False).encode("utf-8")
 
 
-def error_result(message):
+def error_result(message, stage="backend"):
     return {
+        "error": message,
         "tokens": [],
-        "syntax": {"ok": False, "stage": "backend", "error": message},
+        "syntax": {"ok": False, "stage": stage, "error": message},
         "ast": None,
         "semantics": {"ok": False, "diagnostics": []},
     }
@@ -56,20 +57,20 @@ class Handler(SimpleHTTPRequestHandler):
             self.send_json(400, {"error": "Invalid request length."})
             return
         if length > MAX_SOURCE_BYTES * 6 + 4096:
-            self.send_json(413, {"error": "Request is too large. Source limit is 64 KiB."})
+            self.send_json(413, error_result("Request is too large. Source limit is 64 KiB.", stage="input"))
             return
         body = self.rfile.read(length)
         try:
             request = json.loads(body.decode("utf-8"))
         except (UnicodeDecodeError, json.JSONDecodeError):
-            self.send_json(400, {"error": "Request body must be valid UTF-8 JSON."})
+            self.send_json(400, error_result("Request body must be valid UTF-8 JSON.", stage="input"))
             return
         if not isinstance(request, dict) or not isinstance(request.get("source"), str):
-            self.send_json(400, {"error": "Request JSON must contain a string field named 'source'."})
+            self.send_json(400, error_result("Request JSON must contain a string field named 'source'.", stage="input"))
             return
         source = request["source"]
         if len(source.encode("utf-8")) > MAX_SOURCE_BYTES:
-            self.send_json(413, {"error": "Source is too large. Maximum size is 64 KiB."})
+            self.send_json(413, error_result("Source is too large. Maximum size is 64 KiB.", stage="input"))
             return
         if not COMPILER.is_file():
             self.send_json(503, error_result("Compiler binary not found. Run 'make' in the project directory first."))
@@ -92,8 +93,8 @@ class Handler(SimpleHTTPRequestHandler):
             self.send_json(503, error_result("Could not start the compiler. Check that mini_compiler is executable."))
             return
         try:
-            result = json.loads(completed.stdout.decode("utf-8"))
-        except (UnicodeDecodeError, json.JSONDecodeError):
+            result = json.loads(completed.stdout.decode("utf-8", errors="replace"))
+        except json.JSONDecodeError:
             detail = completed.stderr.decode("utf-8", errors="replace").strip()
             self.send_json(500, error_result("Compiler returned invalid JSON." + (f" {detail}" if detail else "")))
             return

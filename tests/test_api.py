@@ -102,6 +102,29 @@ def main():
 
         status, ct, body = request(base + "/not-a-route", json.dumps({"source": "x=1;"}).encode(), headers)
         check("API rejects unknown POST route", status == 404 and "application/json" in ct)
+
+        status, ct, body = request(base + "/api/analyze", json.dumps({"source": "   \n\t  "}).encode(), headers)
+        payload = json.loads(body)
+        check("API rejects whitespace-only source", status == 200 and not payload["syntax"]["ok"])
+
+        nested_code = "switch(x){case 1: y = " + "(" * 50 + "10" + ")" * 50 + "; break;}"
+        status, ct, body = request(base + "/api/analyze", json.dumps({"source": nested_code}).encode(), headers)
+        payload = json.loads(body)
+        check("API handles deeply nested expressions", status == 200 and payload["syntax"]["ok"])
+
+        status, ct, body = request(base + "/api/analyze", json.dumps({"source": "switch(x){case 1: <img src=x onerror=alert(1)>; break;}"}).encode(), headers)
+        payload = json.loads(body)
+        check("API handles HTML-like source safely", status == 200 and not payload["syntax"]["ok"])
+
+        status, ct, body = request(base + "/api/analyze", json.dumps({"source": "switch(x){case 1: y = 🚀; break;}"}).encode(), headers)
+        payload = json.loads(body)
+        check("API handles multi-byte UTF-8 emoji safely", status == 200 and not payload["syntax"]["ok"] and payload["syntax"].get("stage") == "lexical")
+
+        # Verify a new compilation can run successfully after an error
+        status, ct, body = request(base + "/api/analyze", json.dumps({"source": "broken syntax !"}).encode(), headers)
+        status2, ct2, body2 = request(base + "/api/analyze", json.dumps({"source": "switch(x){case 1: break;}"}).encode(), headers)
+        payload2 = json.loads(body2)
+        check("API succeeds on new compilation after previous error", status2 == 200 and payload2["syntax"]["ok"])
     finally:
         proc.terminate()
         try:
