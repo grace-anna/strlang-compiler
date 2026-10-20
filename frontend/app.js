@@ -303,12 +303,10 @@ elEditor.addEventListener('keydown', e => {
 
 async function runAnalysis() {
   const generation = analysisGeneration;
-  const source = elEditor.value.trim();
-  if (!source) {
-    elEditor.focus();
+  const source = elEditor.value;
+  if (!source.trim()) {
     elEditor.classList.add('editor--shake');
     setTimeout(() => elEditor.classList.remove('editor--shake'), 400);
-    return;
   }
 
   setLoadingState(true);
@@ -319,7 +317,7 @@ async function runAnalysis() {
   } catch (err) {
     result = {
       tokens:    [],
-      syntax:    { ok: false, error: `Engine threw an unexpected error: ${err.message}` },
+      syntax:    { ok: false, stage: 'backend', error: `Engine threw an unexpected error: ${err.message}` },
       ast:       null,
       semantics: { ok: false, diagnostics: [] },
     };
@@ -327,8 +325,14 @@ async function runAnalysis() {
 
   setLoadingState(false);
   if (generation !== analysisGeneration) return;
- renderResult(result);
-activateTab(chooseInitialTab(result));
+
+  try {
+    renderResult(result);
+    activateTab(chooseInitialTab(result));
+  } catch (renderErr) {
+    console.error('Error rendering analysis result:', renderErr);
+    showFatalError('Display error', `Could not render compiler results: ${renderErr.message}`);
+  }
 }
 
 function setLoadingState(loading) {
@@ -339,8 +343,8 @@ function setLoadingState(loading) {
 
 /** After analysis, jump to the most informative tab automatically. */
 function chooseInitialTab(result) {
-  if (!result.syntax.ok)    return 'parse';
-  if (!result.semantics.ok) return 'semantics';
+  if (!result || !result.syntax || !result.syntax.ok)    return 'parse';
+  if (!result.semantics || !result.semantics.ok) return 'semantics';
   return 'ast';
 }
 
@@ -392,7 +396,7 @@ const TOKEN_CLASS = {
 
 function renderTokens(tokens) {
   if (!tokens || tokens.length === 0) {
-    renderTokensEmpty();
+    renderTokensEmpty('No tokens found in source.');
     return;
   }
 
@@ -400,6 +404,7 @@ function renderTokens(tokens) {
   elTokensBody.innerHTML = '';
 
   tokens.forEach((token, i) => {
+    if (!token || typeof token !== 'object') return;
     const tr = document.createElement('tr');
     tr.style.animationDelay = `${i * 28}ms`;
     tr.classList.add('token-row');
@@ -407,18 +412,19 @@ function renderTokens(tokens) {
     const cls = TOKEN_CLASS[token.type] || 'tok-punct';
 
     tr.innerHTML = `
-      <td class="td-index">${token.index}</td>
+      <td class="td-index">${escHtml(token.index)}</td>
       <td><span class="token-badge ${cls}">${escHtml(token.type)}</span></td>
       <td class="td-lexeme"><code>${escHtml(token.lexeme)}</code></td>
-      <td class="td-line">${token.line}</td>
-      <td class="td-line">${token.column ?? "—"}</td>
+      <td class="td-line">${escHtml(token.line)}</td>
+      <td class="td-line">${escHtml(token.column ?? "—")}</td>
     `;
     elTokensBody.appendChild(tr);
   });
 }
 
-function renderTokensEmpty() {
+function renderTokensEmpty(message = 'Run Analyze to inspect the token stream.') {
   elTokensBody.innerHTML = '';
+  elTokensEmpty.textContent = message;
   elTokensEmpty.removeAttribute('hidden');
 }
 
@@ -432,6 +438,13 @@ function renderParseIdle() {
 }
 
 function renderParse(syntax) {
+  if (!syntax || typeof syntax !== 'object') {
+    elParseStatus.className = 'parse-status parse-status--error';
+    elParseStatus.innerHTML = `<span class="status-icon">❌</span> Analysis failed`;
+    elParseError.removeAttribute('hidden');
+    elParseError.textContent = 'No syntax analysis data returned.';
+    return;
+  }
   if (syntax.ok) {
     elParseStatus.className = 'parse-status parse-status--ok';
     elParseStatus.innerHTML = `<span class="status-icon">✅</span> Syntax analysis successful. Parse tree built`;
@@ -461,9 +474,9 @@ function renderAstEmpty() {
 function renderAst(ast) {
   elAstRoot.innerHTML = '';
 
-  if (!ast || ast.length === 0) {
+  if (!ast || !Array.isArray(ast) || ast.length === 0) {
     elAstEmpty.removeAttribute('hidden');
-    elAstEmpty.textContent = ast === null
+    elAstEmpty.textContent = (ast === null || ast === undefined)
       ? 'AST not available - parse failed.'
       : 'Empty program - no statements found.';
     return;
@@ -481,10 +494,13 @@ function renderAst(ast) {
 function buildAstList(nodes) {
   const ul = document.createElement('ul');
   ul.classList.add('ast-list');
+  if (!Array.isArray(nodes)) return ul;
 
   for (const node of nodes) {
+    if (!node || typeof node !== 'object') continue;
     const li = document.createElement('li');
-    li.classList.add('ast-node', `ast-node--${node.kind}`);
+    const safeKind = String(node.kind || '').replace(/[^a-zA-Z0-9_-]/g, '');
+    li.classList.add('ast-node', safeKind ? `ast-node--${safeKind}` : 'ast-node--unknown');
 
     switch (node.kind) {
       case 'switch': {
@@ -496,12 +512,13 @@ function buildAstList(nodes) {
           li.appendChild(selectorUl);
         }
 
-        if (node.cases && node.cases.length > 0) {
+        if (Array.isArray(node.cases) && node.cases.length > 0) {
           for (const c of node.cases) {
+            if (!c || typeof c !== 'object') continue;
             const caseLi = document.createElement('li');
             caseLi.classList.add('ast-node', 'ast-node--case');
             caseLi.innerHTML = `<span class="ast-icon">◆</span><span class="ast-label">Case</span><span class="ast-detail">${escHtml(c.value)}</span>`;
-            if (c.body && c.body.length > 0) {
+            if (Array.isArray(c.body) && c.body.length > 0) {
               caseLi.appendChild(buildAstList(c.body));
             }
             const caseUl = document.createElement('ul');
@@ -515,7 +532,7 @@ function buildAstList(nodes) {
           const defLi = document.createElement('li');
           defLi.classList.add('ast-node', 'ast-node--default');
           defLi.innerHTML = `<span class="ast-icon">🔲</span><span class="ast-label">Default</span>`;
-          if (node.defaultBody.length > 0) {
+          if (Array.isArray(node.defaultBody) && node.defaultBody.length > 0) {
             defLi.appendChild(buildAstList(node.defaultBody));
           }
           const defUl = document.createElement('ul');
@@ -555,7 +572,7 @@ function buildAstList(nodes) {
         break;
 
       default:
-        li.innerHTML = `<span class="ast-icon">?</span><span class="ast-label">${escHtml(node.kind)}</span>`;
+        li.innerHTML = `<span class="ast-icon">?</span><span class="ast-label">${escHtml(node.kind || 'Unknown')}</span>`;
     }
 
     ul.appendChild(li);
@@ -567,18 +584,23 @@ function buildAstList(nodes) {
 function buildExpressionNode(expr) {
   const li = document.createElement('li');
   li.classList.add('ast-node', 'ast-node--expression');
+  if (!expr || typeof expr !== 'object') {
+    li.innerHTML = `<span class="ast-label">Missing</span>`;
+    return li;
+  }
   let label = '';
   let detail = '';
-  if (expr.kind === 'number') { label = 'Number'; detail = String(expr.value); }
-  else if (expr.kind === 'identifier') { label = 'Identifier'; detail = expr.name; }
-  else if (expr.kind === 'string') { label = 'String'; detail = `"${expr.value}"`; }
-  else if (expr.kind === 'binary') { label = 'Operator'; detail = expr.operator; }
-  else if (expr.kind === 'unary') { label = 'Unary'; detail = expr.operator; }
-  else if (expr.kind === 'call') { label = 'Call'; detail = expr.name; }
-  li.innerHTML = `<span class="ast-label">${escHtml(label || expr.kind)}</span><span class="ast-detail">${escHtml(detail)}</span>`;
-  const children = expr.kind === 'binary' ? [expr.left, expr.right]
+  if (expr.kind === 'number') { label = 'Number'; detail = String(expr.value ?? ''); }
+  else if (expr.kind === 'identifier') { label = 'Identifier'; detail = expr.name ?? ''; }
+  else if (expr.kind === 'string') { label = 'String'; detail = `"${expr.value ?? ''}"`; }
+  else if (expr.kind === 'binary') { label = 'Operator'; detail = expr.operator ?? ''; }
+  else if (expr.kind === 'unary') { label = 'Unary'; detail = expr.operator ?? ''; }
+  else if (expr.kind === 'call') { label = 'Call'; detail = expr.name ?? ''; }
+  li.innerHTML = `<span class="ast-label">${escHtml(label || expr.kind || 'Expression')}</span><span class="ast-detail">${escHtml(detail)}</span>`;
+  const rawChildren = expr.kind === 'binary' ? [expr.left, expr.right]
     : expr.kind === 'unary' ? [expr.operand]
-      : expr.kind === 'call' ? expr.arguments : [];
+    : expr.kind === 'call' ? (expr.arguments || []) : [];
+  const children = rawChildren.filter(c => c !== null && c !== undefined);
   if (children.length) {
     const ul = document.createElement('ul');
     ul.classList.add('ast-list');
@@ -606,20 +628,29 @@ function renderSemantics(semantics, syntaxOk) {
     return;
   }
 
-  if (semantics.ok) {
+  if (!semantics || typeof semantics !== 'object') {
+    elSemStatus.className = 'sem-status sem-status--idle';
+    elSemStatus.innerHTML = `<span class="status-icon">⏸</span> Semantic analysis not available`;
+    return;
+  }
+
+  const diags = Array.isArray(semantics.diagnostics) ? semantics.diagnostics : [];
+  if (semantics.ok && diags.length === 0) {
     elSemStatus.className = 'sem-status sem-status--ok';
     elSemStatus.innerHTML =
       `<span class="status-icon">✅</span> Semantic analysis successful. No errors detected`;
   } else {
-    const count = semantics.diagnostics.filter(d => d.kind === 'error').length;
+    const count = diags.filter(d => d && d.kind === 'error').length;
     elSemStatus.className = 'sem-status sem-status--error';
     elSemStatus.innerHTML =
       `<span class="status-icon">❌</span> ${count} semantic error${count !== 1 ? 's' : ''} detected`;
   }
 
-  for (const diag of semantics.diagnostics) {
+  for (const diag of diags) {
+    if (!diag || typeof diag !== 'object') continue;
     const card = document.createElement('div');
-    card.classList.add('diag-card', `diag-card--${diag.kind}`);
+    const safeKind = String(diag.kind || 'error').replace(/[^a-zA-Z0-9_-]/g, '');
+    card.classList.add('diag-card', `diag-card--${safeKind || 'error'}`);
 
     const iconMap = { error: '❌', warning: '⚠️', info: 'ℹ️' };
     card.innerHTML = `
@@ -641,15 +672,21 @@ function showConsoleMessage(message, kind = 'info') {
 }
 
 function renderConsole(result) {
+  if (!result || typeof result !== 'object') return;
   const messages = [];
-  if (result.syntax.ok) messages.push({ kind: 'success', text: 'Syntax analysis successful.' });
+  const syntax = result.syntax || { ok: false, error: 'Unknown syntax result' };
+  if (syntax.ok) messages.push({ kind: 'success', text: 'Syntax analysis successful.' });
   else {
-    const stage = result.syntax.stage || 'syntax';
+    const stage = syntax.stage || 'syntax';
     const prefixByStage = { lexical: 'Lexical error', syntax: 'Syntax error', backend: 'Backend/API error', input: 'Input error' };
-    messages.push({ kind: 'error', text: `${prefixByStage[stage] || 'Analysis error'}: ${result.syntax.error || 'No details provided.'}` });
+    messages.push({ kind: 'error', text: `${prefixByStage[stage] || 'Analysis error'}: ${syntax.error || 'No details provided.'}` });
   }
-  for (const d of (result.semantics.diagnostics || [])) messages.push({ kind: d.kind || 'error', text: d.message });
-  if (result.syntax.ok && result.semantics.ok && messages.length === 1) messages.push({ kind: 'success', text: 'Semantic analysis successful. No semantic errors reported.' });
+  const semantics = result.semantics || { ok: false, diagnostics: [] };
+  const diags = Array.isArray(semantics.diagnostics) ? semantics.diagnostics : [];
+  for (const d of diags) {
+    if (d && d.message) messages.push({ kind: d.kind || 'error', text: d.message });
+  }
+  if (syntax.ok && semantics.ok && messages.length === 1) messages.push({ kind: 'success', text: 'Semantic analysis successful. No semantic errors reported.' });
   elConsoleMessages.innerHTML = '';
   messages.forEach(item => {
     const row = document.createElement('div');
@@ -666,11 +703,13 @@ function renderConsole(result) {
 // ═══════════════════════════════════════════════════════════════════════════
 
 function escHtml(str) {
+  if (str === null || str === undefined) return '';
   return String(str)
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

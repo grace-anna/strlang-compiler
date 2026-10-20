@@ -100,6 +100,34 @@ def main():
     statuses = [analyze("switch(x){case 1: x=1; break;}")[0], analyze("switch(x){case 1: x=a+*b; break;}")[0], analyze("switch(x){case 1: x=y+1; break;}")[0]]
     check("independent repeated compilations", statuses == [0, 1, 0], repr(statuses))
 
+    rc, ws = analyze("   \n\t  ")
+    check("whitespace-only input rejected consistently", rc != 0 and not ws["syntax"]["ok"])
+
+    depth = 100
+    nested_expr = "(" * depth + "42" + ")" * depth
+    rc, nested_res = analyze(f"switch(x){{case 1: y = {nested_expr}; break;}}")
+    check("deeply nested expressions handled without crash", rc == 0 and nested_res["syntax"]["ok"])
+
+    nested_switches = ""
+    for i in range(20): nested_switches += f"switch(x{i}){{case 1: "
+    for i in range(20): nested_switches += "break;} "
+    rc, nested_sw_res = analyze(nested_switches)
+    check("deeply nested switch statements handled without crash", rc == 0 and nested_sw_res["syntax"]["ok"])
+
+    rc, html_input = analyze("switch(x){case 1: <script>alert('xss')</script>; break;}")
+    check("HTML tags in source handled safely without crash", rc != 0 and not html_input["syntax"]["ok"])
+
+    rc, emoji_res = analyze("switch(x){case 1: y = 🚀; break;}")
+    check("multi-byte UTF-8 emoji handled safely as lexical error", rc != 0 and not emoji_res["syntax"]["ok"] and emoji_res["syntax"].get("stage") == "lexical" and any(t["lexeme"] == "🚀" for t in emoji_res["tokens"]))
+
+    recovery_seq = [
+        analyze("")[0],
+        analyze("switch(x){case 1: break;}")[0],
+        analyze("switch(x){case 1: @; break;}")[0],
+        analyze("switch(x){case 1: y=1; break;}")[0],
+    ]
+    check("compilation recovery after error sequence", recovery_seq == [1, 0, 1, 0], repr(recovery_seq))
+
     print(f"\nJSON regression results: {passed} passed, {failed} failed")
     return 1 if failed else 0
 

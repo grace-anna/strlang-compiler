@@ -12,6 +12,9 @@ registerEngine({
       });
       const payload = await response.json().catch(() => null);
       if (!response.ok) {
+        const stage = payload && payload.syntax && payload.syntax.stage
+          ? payload.syntax.stage
+          : (response.status === 413 ? 'input' : 'backend');
         const message = payload && payload.syntax && payload.syntax.error
           ? payload.syntax.error
           : payload && payload.error
@@ -19,7 +22,7 @@ registerEngine({
             : `Backend request failed (HTTP ${response.status}).`;
         return {
           tokens: [],
-          syntax: { ok: false, stage: 'backend', error: message },
+          syntax: { ok: false, stage: stage, error: message },
           ast: null,
           semantics: { ok: false, diagnostics: [] }
         };

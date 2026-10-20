@@ -91,18 +91,35 @@ static char *read_all(FILE *fp, size_t *length) {
 
 static void json_string(const char *s) {
     putchar('"');
-    for (const unsigned char *p = (const unsigned char *)(s ? s : ""); *p; p++) {
+    for (const unsigned char *p = (const unsigned char *)(s ? s : ""); *p;) {
         switch (*p) {
-            case '"': fputs("\\\"", stdout); break;
-            case '\\': fputs("\\\\", stdout); break;
-            case '\b': fputs("\\b", stdout); break;
-            case '\f': fputs("\\f", stdout); break;
-            case '\n': fputs("\\n", stdout); break;
-            case '\r': fputs("\\r", stdout); break;
-            case '\t': fputs("\\t", stdout); break;
+            case '"': fputs("\\\"", stdout); p++; break;
+            case '\\': fputs("\\\\", stdout); p++; break;
+            case '\b': fputs("\\b", stdout); p++; break;
+            case '\f': fputs("\\f", stdout); p++; break;
+            case '\n': fputs("\\n", stdout); p++; break;
+            case '\r': fputs("\\r", stdout); p++; break;
+            case '\t': fputs("\\t", stdout); p++; break;
             default:
-                if (*p < 0x20) printf("\\u%04x", *p);
-                else putchar(*p);
+                if (*p < 0x20) {
+                    printf("\\u%04x", *p);
+                    p++;
+                } else if (*p < 0x80) {
+                    putchar(*p);
+                    p++;
+                } else {
+                    size_t seq_len = 1;
+                    if ((*p & 0xE0) == 0xC0 && (p[1] & 0xC0) == 0x80) seq_len = 2;
+                    else if ((*p & 0xF0) == 0xE0 && (p[1] & 0xC0) == 0x80 && (p[2] & 0xC0) == 0x80) seq_len = 3;
+                    else if ((*p & 0xF8) == 0xF0 && (p[1] & 0xC0) == 0x80 && (p[2] & 0xC0) == 0x80 && (p[3] & 0xC0) == 0x80) seq_len = 4;
+                    if (seq_len > 1) {
+                        for (size_t k = 0; k < seq_len; k++) putchar(p[k]);
+                        p += seq_len;
+                    } else {
+                        printf("\\u%04x", *p);
+                        p++;
+                    }
+                }
         }
     }
     putchar('"');
@@ -217,8 +234,18 @@ static void print_tokens(const char *source) {
                    (c == '>' && source[i+1] == '=') || (c == '&' && source[i+1] == '&') ||
                    (c == '|' && source[i+1] == '|'))) {
             i += 2; n = 2;
+        } else if (c >= 0x80) {
+            if ((c & 0xE0) == 0xC0 && i + 1 < len && ((unsigned char)source[i+1] & 0xC0) == 0x80) {
+                i += 2; n = 2;
+            } else if ((c & 0xF0) == 0xE0 && i + 2 < len && ((unsigned char)source[i+1] & 0xC0) == 0x80 && ((unsigned char)source[i+2] & 0xC0) == 0x80) {
+                i += 3; n = 3;
+            } else if ((c & 0xF8) == 0xF0 && i + 3 < len && ((unsigned char)source[i+1] & 0xC0) == 0x80 && ((unsigned char)source[i+2] & 0xC0) == 0x80 && ((unsigned char)source[i+3] & 0xC0) == 0x80) {
+                i += 4; n = 4;
+            } else {
+                i++; n = 1;
+            }
         } else i++;
-        col += (int)n;
+        col += 1;
         print_one_token(source, start, n, ++index, token_line, token_col, &first);
     }
     fputc(']', stdout);

@@ -59,6 +59,9 @@ static int bad_token(const char *message);
                                 }
 [ \t\r\n]+                      { }
 [()+*/%<>=:;{},!\-]              { return yytext[0]; }
+[\xc2-\xdf][\x80-\xbf]          { return bad_token("unsupported character"); }
+[\xe0-\xef][\x80-\xbf]{2}       { return bad_token("unsupported character"); }
+[\xf0-\xf4][\x80-\xbf]{3}       { return bad_token("unsupported character"); }
 .                               { return bad_token("unsupported character"); }
 %%
 
