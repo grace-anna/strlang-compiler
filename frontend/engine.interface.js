@@ -13,6 +13,7 @@
  *
  * Type values mirror the terminal symbols in parser.y / lexer.l:
  *   SWITCH  CASE  DEFAULT  BREAK  NUMBER  IDENT
+ *   STRING   (quoted string literal, including its source escape spelling)
  *   OPERATOR (supported operators such as +, -, *, /, %, ==, !=, <=, >=, &&, ||)
  *   PUNCT    (single-character delimiters such as ( ) { } : ; )
  *   INVALID  (unsupported characters and floating-point literals in this integer subset)
@@ -53,10 +54,11 @@
  *   "switch"  name, selector, cases, defaultBody
  *   "break"   line, column
  *   "assign"  name, value (printed expression), expression AST
+ *   "call"    expression AST (function name and ordered arguments)
  *   "empty"   (no extra fields)
  *
  * @typedef {Object} ASTNode
- * @property {"switch"|"break"|"assign"|"empty"} kind
+ * @property {"switch"|"break"|"assign"|"call"|"empty"} kind
  * @property {string}          [name]        - Identifier (switch / assign)
  * @property {string}          [value]       - Printed assignment expression
  * @property {Object}          [expression]  - Structured expression AST

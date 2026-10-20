@@ -1,6 +1,6 @@
 # Implemented Grammar
 
-This document describes the language accepted by `parser.y` and `lexer.l`. The compiler is a small C-like front end, not a complete ISO C compiler. A nonempty program must contain one or more top-level switch statements. A top-level `break;` is also parsed deliberately so semantic analysis can report “break outside switch.” Standalone assignments, expressions, and empty statements are rejected at the top level; assignments, empty statements, and braced statement blocks are accepted inside switch case/default bodies.
+This document describes the language accepted by `parser.y` and `lexer.l`. The compiler is a small C-like front end, not a complete ISO C compiler. A nonempty program must contain one or more top-level switch statements. A top-level `break;` is also parsed deliberately so semantic analysis can report “break outside switch.” Standalone assignments, expressions, function calls, and empty statements are rejected at the top level; assignments, function-call statements, empty statements, and braced statement blocks are accepted inside switch case/default bodies.
 
 ## Yacc/Bison productions
 
@@ -24,6 +24,7 @@ statement:
     switch_stmt
   | BREAK ';'
   | IDENT '=' expr ';'
+  | IDENT '(' argument_list_opt ')' ';'
   | ';'
   | '{' stmt_list '}'
 ;
@@ -75,7 +76,19 @@ expr:
   | '!' expr %prec UMINUS
   | NUMBER
   | IDENT
+  | STRING
+  | IDENT '(' argument_list_opt ')'
   | '(' expr ')'
+;
+
+argument_list_opt:
+    %empty
+  | argument_list
+;
+
+argument_list:
+    expr
+  | argument_list ',' expr
 ;
 ```
 
@@ -93,5 +106,6 @@ From lowest to highest: `||`, `&&`, `==` / `!=`, `<` / `>` / `<=` / `>=`, `+` / 
 
 - Case labels must be signed integer literals, not identifiers or constant expressions.
 - The language does not yet parse variable declarations or enforce declared-variable/type/scope rules; a symbol table is therefore not claimed.
-- There are no functions, loops, `if` statements, arrays, strings, floating-point values, increment/decrement operators, or full C declaration syntax.
-- The AST stores switch and assignment expressions structurally, preserving operator precedence and source locations. Braced statement blocks are accepted but their braces are not stored as separate AST nodes.
+- Function calls are supported as expressions and as statements in switch bodies, with zero or more comma-separated expression arguments. Function definitions, declarations, and call/type validation are not implemented.
+- Double-quoted string literals support backslash-escaped characters and preserve their source spelling in the AST; escape sequences are not interpreted. Character literals, floating-point values, increment/decrement operators, loops, `if` statements, arrays, and full C declaration syntax are not supported.
+- The AST stores switch, assignment, and call expressions structurally, preserving operator precedence and source locations. Braced statement blocks are accepted but their braces are not stored as separate AST nodes.

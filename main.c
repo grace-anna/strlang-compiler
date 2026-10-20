@@ -135,7 +135,8 @@ static const char *token_type(const char *s, size_t n) {
                     !memcmp(s, "<=", 2) || !memcmp(s, ">=", 2) ||
                     !memcmp(s, "&&", 2) || !memcmp(s, "||", 2))) return "OPERATOR";
     if (n == 1 && strchr("+-*/%<>! =", s[0]) && s[0] != ' ') return "OPERATOR";
-    if (n == 1 && strchr("(){}:;", s[0])) return "PUNCT";
+    if (n == 1 && strchr("(),{}:;", s[0])) return "PUNCT";
+    if (n >= 2 && s[0] == '"' && s[n - 1] == '"') return "STRING";
     return "INVALID";
 }
 
@@ -204,6 +205,13 @@ static void print_tokens(const char *source) {
         } else if (c == '.' && i + 1 < len && digit_char((unsigned char)source[i + 1])) {
             i++; while (i < len && digit_char((unsigned char)source[i])) i++;
             n = i - start;
+        } else if (c == '"') {
+            i++;
+            while (i < len && source[i] != '\n') {
+                if (source[i] == '\\' && i + 1 < len) i += 2;
+                else if (source[i++] == '"') break;
+            }
+            n = i - start;
         } else if (i + 1 < len && ((c == '=' && source[i+1] == '=') ||
                    (c == '!' && source[i+1] == '=') || (c == '<' && source[i+1] == '=') ||
                    (c == '>' && source[i+1] == '=') || (c == '&' && source[i+1] == '&') ||
@@ -224,6 +232,21 @@ static void print_expr_json(const Expr *expr) {
         fputs("{\"kind\":\"identifier\",\"name\":", stdout);
         json_string(expr->name);
         printf(",\"line\":%d,\"column\":%d}", expr->line, expr->column);
+    } else if (expr->type == EX_STRING) {
+        fputs("{\"kind\":\"string\",\"value\":", stdout);
+        json_string(expr->name);
+        printf(",\"line\":%d,\"column\":%d}", expr->line, expr->column);
+    } else if (expr->type == EX_CALL) {
+        fputs("{\"kind\":\"call\",\"name\":", stdout);
+        json_string(expr->name);
+        fputs(",\"arguments\":[", stdout);
+        int first = 1;
+        for (ExprList *arg = expr->arguments; arg; arg = arg->next) {
+            if (!first) putchar(',');
+            first = 0;
+            print_expr_json(arg->expr);
+        }
+        printf("],\"line\":%d,\"column\":%d}", expr->line, expr->column);
     } else if (expr->type == EX_BINARY) {
         fputs("{\"kind\":\"binary\",\"operator\":", stdout);
         json_string(expr->op);
@@ -271,6 +294,10 @@ static void print_ast_json(Stmt *list) {
             fputs(",\"expression\":", stdout); print_expr_json(s->expr);
             printf(",\"line\":%d,\"column\":%d}", s->line, s->column);
             free(value);
+        } else if (s->type == ST_CALL) {
+            fputs("{\"kind\":\"call\",\"expression\":", stdout);
+            print_expr_json(s->expr);
+            printf(",\"line\":%d,\"column\":%d}", s->line, s->column);
         } else {
             printf("{\"kind\":\"empty\",\"line\":%d,\"column\":%d}", s->line, s->column);
         }

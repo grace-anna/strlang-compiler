@@ -540,6 +540,16 @@ function buildAstList(nodes) {
         }
         break;
 
+      case 'call':
+        li.innerHTML = `<span class="ast-icon">ƒ</span><span class="ast-label">Function call</span>`;
+        if (node.expression) {
+          const exprUl = document.createElement('ul');
+          exprUl.classList.add('ast-list');
+          exprUl.appendChild(buildExpressionNode(node.expression));
+          li.appendChild(exprUl);
+        }
+        break;
+
       case 'empty':
         li.innerHTML = `<span class="ast-icon">∅</span><span class="ast-label">EmptyStatement</span>`;
         break;
@@ -561,10 +571,14 @@ function buildExpressionNode(expr) {
   let detail = '';
   if (expr.kind === 'number') { label = 'Number'; detail = String(expr.value); }
   else if (expr.kind === 'identifier') { label = 'Identifier'; detail = expr.name; }
+  else if (expr.kind === 'string') { label = 'String'; detail = `"${expr.value}"`; }
   else if (expr.kind === 'binary') { label = 'Operator'; detail = expr.operator; }
   else if (expr.kind === 'unary') { label = 'Unary'; detail = expr.operator; }
+  else if (expr.kind === 'call') { label = 'Call'; detail = expr.name; }
   li.innerHTML = `<span class="ast-label">${escHtml(label || expr.kind)}</span><span class="ast-detail">${escHtml(detail)}</span>`;
-  const children = expr.kind === 'binary' ? [expr.left, expr.right] : expr.kind === 'unary' ? [expr.operand] : [];
+  const children = expr.kind === 'binary' ? [expr.left, expr.right]
+    : expr.kind === 'unary' ? [expr.operand]
+      : expr.kind === 'call' ? expr.arguments : [];
   if (children.length) {
     const ul = document.createElement('ul');
     ul.classList.add('ast-list');

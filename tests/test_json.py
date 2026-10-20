@@ -48,6 +48,16 @@ def main():
     rc, blocks = analyze("switch(x){case 1:{x=10; break;} default:{x=0;}}")
     check("braced blocks inside case/default", rc == 0 and blocks["syntax"]["ok"] and len(blocks["ast"][0]["cases"][0]["body"]) == 2 and len(blocks["ast"][0]["defaultBody"]) == 1)
 
+    rc, calls = analyze(r'switch(x){case 1: printf("sum = %d\n", add(a, 2), x); break; default: puts("done");}')
+    call_stmt = calls["ast"][0]["cases"][0]["body"][0] if calls.get("ast") else None
+    call_expr = call_stmt.get("expression") if call_stmt else None
+    args = call_expr.get("arguments", []) if call_expr else []
+    check("escaped string and multiple/nested call arguments", rc == 0 and calls["syntax"]["ok"] and call_stmt["kind"] == "call" and call_expr["name"] == "printf" and args[0]["value"] == r"sum = %d\n" and args[1]["name"] == "add" and len(args[1]["arguments"]) == 2 and args[2]["name"] == "x" and calls["ast"][0]["defaultBody"][0]["expression"]["name"] == "puts")
+
+    rc, quoted = analyze(r'switch(x){case 1: printf("say \"hi\"\t", x); break;}')
+    quoted_value = quoted["ast"][0]["cases"][0]["body"][0]["expression"]["arguments"][0]["value"] if quoted.get("ast") else None
+    check("escaped quotes and tabs in string literal", rc == 0 and quoted_value == r"say \"hi\"\t")
+
     rc, invalid = analyze("switch(x){case 1: x = a + * b; break;}")
     check("malformed operator sequence rejected", rc != 0 and not invalid["syntax"]["ok"] and invalid["syntax"].get("stage") == "syntax" and "line 1, column" in invalid["syntax"]["error"])
 

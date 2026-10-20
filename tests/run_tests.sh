@@ -52,6 +52,7 @@ run_test tests/invalid_float_trailing_dot.c 1 "Lexical error"
 run_test tests/invalid_integer_overflow.c 1 "Lexical error"
 run_test tests/block_comments.c 0 "Semantic analysis successful."
 run_test tests/block_statement.c 0 "Semantic analysis successful."
+run_test tests/function_calls.c 0 'Call(printf("Addition\n", add(left, 2), result))'
 
 printf '\nCompiler regression results: %d passed, %d failed\n' "$passed" "$failed"
 [ "$failed" -eq 0 ] && python3 tests/test_json.py && python3 tests/test_api.py

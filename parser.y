@@ -23,6 +23,7 @@ Stmt *root = NULL;
     long long num;
     char *str;
     Expr *expr;
+    ExprList *args;
     Stmt *stmt;
     Case *cases;
     DefaultPart *def;
@@ -30,6 +31,7 @@ Stmt *root = NULL;
 
 %token SWITCH CASE DEFAULT BREAK
 %token <str> IDENT
+%token <str> STRING
 %token <num> NUMBER
 %token EQ NE LE GE AND OR INVALID
 
@@ -37,6 +39,7 @@ Stmt *root = NULL;
 %type <cases> case_list case_clause
 %type <def> default_opt default_clause
 %type <expr> expr
+%type <args> argument_list argument_list_opt
 %type <num> case_constant
 
 %left OR
@@ -69,6 +72,8 @@ statement:
     switch_stmt                   { $$ = $1; }
   | BREAK ';'                     { $$ = make_break(@1.first_line, @1.first_column); }
   | IDENT '=' expr ';'            { $$ = make_assign($1, $3, @1.first_line, @1.first_column); }
+  | IDENT '(' argument_list_opt ')' ';'
+                                  { $$ = make_call_stmt(make_call_expr($1, $3, @1.first_line, @1.first_column), @1.first_line, @1.first_column); }
   | ';'                           { $$ = make_empty(@1.first_line, @1.first_column); }
   | '{' stmt_list '}'             { $$ = $2; }
 ;
@@ -122,7 +127,20 @@ expr:
   | '!' expr %prec UMINUS         { $$ = make_unary("!", $2, @1.first_line, @1.first_column); }
   | NUMBER                        { $$ = make_number($1, @1.first_line, @1.first_column); }
   | IDENT                         { $$ = make_identifier($1, @1.first_line, @1.first_column); }
+  | STRING                        { $$ = make_string($1, @1.first_line, @1.first_column); }
+  | IDENT '(' argument_list_opt ')'
+                                  { $$ = make_call_expr($1, $3, @1.first_line, @1.first_column); }
   | '(' expr ')'                  { $$ = $2; }
+;
+
+argument_list_opt:
+    %empty                        { $$ = NULL; }
+  | argument_list                 { $$ = $1; }
+;
+
+argument_list:
+    expr                           { $$ = make_expr_list($1); }
+  | argument_list ',' expr        { $$ = append_expr($1, $3); }
 ;
 
 %%

@@ -41,6 +41,40 @@ Expr *make_identifier(char *name, int line, int column) {
     return e;
 }
 
+Expr *make_string(char *value, int line, int column) {
+    Expr *e = checked_calloc(1, sizeof(*e));
+    e->type = EX_STRING;
+    e->name = value ? value : copy_string("");
+    e->line = line;
+    e->column = column;
+    return e;
+}
+
+Expr *make_call_expr(char *name, ExprList *arguments, int line, int column) {
+    Expr *e = checked_calloc(1, sizeof(*e));
+    e->type = EX_CALL;
+    e->name = name ? name : copy_string("");
+    e->arguments = arguments;
+    e->line = line;
+    e->column = column;
+    return e;
+}
+
+ExprList *make_expr_list(Expr *expr) {
+    ExprList *item = checked_calloc(1, sizeof(*item));
+    item->expr = expr;
+    return item;
+}
+
+ExprList *append_expr(ExprList *list, Expr *expr) {
+    ExprList *item = make_expr_list(expr);
+    if (!list) return item;
+    ExprList *p = list;
+    while (p->next) p = p->next;
+    p->next = item;
+    return list;
+}
+
 Expr *make_binary(const char *op, Expr *left, Expr *right, int line, int column) {
     Expr *e = checked_calloc(1, sizeof(*e));
     e->type = EX_BINARY;
@@ -91,6 +125,20 @@ static void expression_string_into(const Expr *e, char **buf, size_t *used, size
             break;
         case EX_IDENT:
             append_text(buf, used, cap, e->name ? e->name : "");
+            break;
+        case EX_STRING:
+            append_text(buf, used, cap, "\"");
+            append_text(buf, used, cap, e->name ? e->name : "");
+            append_text(buf, used, cap, "\"");
+            break;
+        case EX_CALL:
+            append_text(buf, used, cap, e->name ? e->name : "");
+            append_text(buf, used, cap, "(");
+            for (ExprList *arg = e->arguments; arg; arg = arg->next) {
+                if (arg != e->arguments) append_text(buf, used, cap, ", ");
+                expression_string_into(arg->expr, buf, used, cap);
+            }
+            append_text(buf, used, cap, ")");
             break;
         case EX_BINARY:
             append_text(buf, used, cap, "(");
@@ -151,6 +199,15 @@ Stmt *make_assign(char *name, Expr *expr, int line, int column) {
     s->type = ST_ASSIGN;
     s->name = name ? name : copy_string("");
     s->expr = expr;
+    s->line = line;
+    s->column = column;
+    return s;
+}
+
+Stmt *make_call_stmt(Expr *call, int line, int column) {
+    Stmt *s = checked_calloc(1, sizeof(*s));
+    s->type = ST_CALL;
+    s->expr = call;
     s->line = line;
     s->column = column;
     return s;
@@ -220,6 +277,10 @@ void print_ast(Stmt *list, int depth) {
         } else if (s->type == ST_ASSIGN) {
             char *value = expr_to_string(s->expr);
             printf("Assign(%s, %s)\n", s->name, value);
+            free(value);
+        } else if (s->type == ST_CALL) {
+            char *value = expr_to_string(s->expr);
+            printf("Call(%s)\n", value);
             free(value);
         } else {
             printf("EmptyStatement\n");

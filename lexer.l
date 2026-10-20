@@ -40,6 +40,11 @@ static int bad_token(const char *message);
                                     if (errno == ERANGE) return bad_token("integer literal is out of range");
                                     return NUMBER;
                                 }
+\"([^\\\"\n]|\\.)*\"           {
+                                    yylval.str = strndup(yytext + 1, (size_t)yyleng - 2);
+                                    return STRING;
+                                }
+\"([^\\\"\n]|\\.)*             { return bad_token("unterminated string literal"); }
 [a-zA-Z_][a-zA-Z0-9_]*           { yylval.str = strdup(yytext); return IDENT; }
 "//"[^\n]*                      { }
 "/*"                            { comment_line = yylloc.first_line; comment_column = yylloc.first_column; BEGIN(BLOCK_COMMENT); }
@@ -53,7 +58,7 @@ static int bad_token(const char *message);
                                     return bad_token("unterminated block comment");
                                 }
 [ \t\r\n]+                      { }
-[()+*/%<>=:;{}!,\-]              { return yytext[0]; }
+[()+*/%<>=:;{},!\-]              { return yytext[0]; }
 .                               { return bad_token("unsupported character"); }
 %%
 
