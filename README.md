@@ -1,75 +1,74 @@
-# SwitchLab — Switch-Case Compiler Front End
+# StrLang Midnight IDE - Flex + Bison Edition
 
-A single-page frontend for a small C-like compiler front end. The browser sends the current editor text to a local Python server, which invokes the C compiler and returns real tokenization, syntax, AST, and semantic results. The UI always uses the backend and actual compiler executable.
+A compiler front end for a custom string-processing language. The lexer is specified in Flex (`src/lexer.l`), the parser and AST/semantic actions in Bison (`src/parser.y`), and the web interface uses HTML/CSS/JavaScript with a Python standard-library HTTP server. Node.js is not used.
 
 ## Requirements
 
-- Ubuntu / WSL
-- GCC
-- Python 3
-- Flex and GNU Bison (required to build the compiler from `lexer.l` and `parser.y`)
+- Flex
+- GNU Bison
+- GCC or Clang
+- Python 3.9+
+- Modern browser
 
-`make` regenerates the parser and lexer from `parser.y` and `lexer.l`, then builds the compiler. Flex and Bison are required; there is no separate fallback parser.
+## Run on Linux/macOS
 
-## Run in Ubuntu / WSL
+Install Flex and Bison with your package manager, then:
 
-From this project root:
-
-```bash
-make clean && make
-bash tests/run_tests.sh
-python3 backend/server.py
+```sh
+chmod +x build.sh
+./build.sh
+python3 server.py
 ```
 
-Open <http://localhost:8000> in your browser. Keep the terminal running while using the site. Stop the server with `Ctrl+C`.
+Open `http://127.0.0.1:4173`.
 
-To use another port:
+## Run on Windows
 
-```bash
-PORT=8001 python3 backend/server.py
+You need a Windows environment where Flex, Bison, and GCC are available in PATH (for example, an MSYS2/MinGW setup configured with those tools). Run:
+
+```bat
+build.bat
+py server.py
 ```
 
-## Run the complete test suites
+If using MSYS2, run the build script from the MSYS2 terminal when the POSIX toolchain is installed there.
 
-The shell test runner executes the compiler regression tests, JSON contract tests, and HTTP API integration tests:
+## Tests
 
-```bash
-bash tests/run_tests.sh
+After building:
+
+```sh
+python3 tests/test_compiler.py
 ```
 
-The Python test scripts can also be run through standard-library unittest discovery. They wrap their existing regression suites so they can be imported safely and can run both standalone and under discovery:
+## Example language
 
-```bash
-python3 -m unittest discover -s tests -p 'test_*.py' -v
+```text
+string first = "Hello";
+string second = "World";
+string message = first + " " + second;
+print(message);
+message = message + "!";
+print(message);
 ```
 
-## Test JSON mode
+Language features:
+- `string name;` and `string name = "value";`
+- `name = expression;`
+- `print(expression);`
+- `+` concatenation, chained expressions, parentheses
+- Empty strings and escapes `\\n`, `\\t`, `\\\\`, `\\"`
+- `//` comments, mandatory semicolons, case-sensitive identifiers
+- Declaration-before-use, duplicate declaration, and initialization checks
+- ASCII-only source, single global scope
+- No loops, conditionals, input, comparison, or execution of source programs
 
-```bash
-./mini_compiler --json tests/valid.c | python3 -m json.tool
-printf 'switch (x) { case 1: x = y + 1; break; }\n' | ./mini_compiler --json | python3 -m json.tool
-```
+## Architecture
 
-Normal terminal mode remains supported:
+`public/app.js` sends source text to `server.py` using `/api/compile`. Python launches the compiled C executable and returns JSON containing tokens, AST, symbol table, and diagnostic information. Flex tokenizes; Bison parses and builds the AST; the semantic pass checks identifier declarations and initialization.
 
-```bash
-./mini_compiler tests/valid.c
-./mini_compiler
-```
+## Notes
 
-## Language scope
-
-Implemented statements: one or more top-level `switch` statements, signed integer `case` labels, one optional trailing `default`, `break`, simple `identifier = expression;` assignments, function-call statements, empty statements, and braced statement blocks inside switch bodies. Calls accept zero or more comma-separated expression arguments and can be nested in expressions. Double-quoted string literals support backslash-escaped characters (including `\\n`, `\\t`, `\\\\`, and `\\\"`) and preserve the written escape spelling in the AST. A top-level `break;` is parsed to demonstrate the semantic “break outside switch” diagnostic. Standalone top-level assignments, expressions, function calls, empty statements, and empty input are rejected. Expressions include decimal integer literals, identifiers, strings, function calls, parentheses, unary `+`, `-`, `!`, arithmetic operators (`+`, `-`, `*`, `/`, `%`), comparisons (`==`, `!=`, `<`, `>`, `<=`, `>=`), and logical operators (`&&`, `||`). Operator precedence and associativity are defined in `parser.y`.
-
-This is **not a full C compiler**. It currently does not parse declarations or function definitions, or implement a typed symbol table, so it does not claim undeclared-variable or type-checking diagnostics. String escape sequences are retained as written rather than interpreted. The selector and assignment right-hand side accept supported expressions; case labels are signed integer literals only. A duplicate default is rejected during syntax analysis, and duplicate case values / break outside a switch are reported during semantic checking.
-
-The backend binds to `127.0.0.1`, accepts source up to 64 KiB, launches the compiler with `shell=False`, and applies a five-second timeout. Compiler analysis never executes the submitted source program.
-
-## Files
-
-- `parser.y`, `lexer.l`: active Bison grammar and Flex lexer, using a single expression rule with precedence declarations
-- `ast.h`, `ast.c`: structured expression/statement AST and text printer
-- `main.c`: normal terminal mode and `--json` mode
-- `backend/server.py`: standard-library local HTTP API
-- `frontend/`: source editor, tokens, syntax results, AST view, and diagnostics
-- `tests/`: original cases, expression regression cases, JSON contract tests and HTTP API tests
+- This project requires Flex and Bison at build time. Generated `src/parser.tab.c`, `src/parser.tab.h`, and `src/lex.yy.c` are created by the build script.
+- It stops at the first diagnostic.
+- This is an academic compiler front end, not a production compiler.

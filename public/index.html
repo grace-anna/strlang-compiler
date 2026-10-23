@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#090D18">
+  <title>StrLang - Compiler IDE</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <main class="app-shell">
+    <header class="topbar compact-topbar"><div class="brand"><div class="brand-mark"><i></i><b></b><em></em></div><div class="brand-name brand-name-large">Str<span>Lang</span> <small>IDE</small></div></div><div class="top-meta"><span class="status-dot"></span><span>Compiler ready</span></div></header>
+    <section class="workspace">
+      <article class="panel editor-panel">
+        <div class="panel-head"><div class="panel-title"><span class="step-badge">01</span><div><h2>Source editor</h2><p>Write a StrLang program</p></div></div><span class="file-chip"><span class="file-dot"></span> main.str</span></div>
+        <div class="editor-toolbar"><label class="sample-select">EXAMPLE <select id="sampleSelect" aria-label="Choose sample"><option value="valid">Valid program</option><option value="escapes">Escape sequences</option><option value="uninitialized">Uninitialized variable</option><option value="undeclared">Undeclared variable</option><option value="badEscape">Invalid escape</option><option value="syntax">Syntax error</option><option value="duplicates">Duplicate declaration</option><option value="comments">Comments and empty string</option><option value="reassignment">Variable reassignment</option><option value="chain">Chained concatenation</option><option value="parentheses">Parenthesized expression</option><option value="multiplePrints">Multiple output statements</option><option value="emptyPrint">Print an empty string</option><option value="lateInit">Declare, then initialize</option><option value="escapeMix">Mixed escape sequences</option></select></label><div class="toolbar-actions"><button id="resetBtn" class="btn btn-quiet">Reset</button></div></div>
+        <div class="editor-wrap"><div class="line-numbers" id="lineNumbers">1</div><textarea id="sourceEditor" spellcheck="false" autocapitalize="off" autocomplete="off" aria-label="StrLang source code"></textarea></div>
+        <div class="editor-foot"><span><span class="keycap">Ctrl</span> + <span class="keycap">Enter</span> to compile</span><span id="sourceStats">0 lines · 0 chars</span></div>
+        <div class="compile-row"><button id="compileBtn" class="btn btn-primary"><span class="play-icon">▶</span> Compile program <span class="shortcut">Ctrl ↵</span></button><span id="compileState" class="compile-state">Ready to compile</span></div>
+      </article>
+      <article class="panel results-panel">
+        <div class="panel-head"><div class="panel-title"><span class="step-badge">02</span><div><h2>Analysis output</h2><p>Compiler pipeline inspection</p></div></div><span id="resultBadge" class="result-badge idle"><span></span> Waiting</span></div>
+        <section class="program-output" aria-live="polite"><div class="output-heading"><div><span class="output-indicator"></span><strong>Program output</strong><span class="output-caption" id="outputStatus">Run a valid program to see its output</span></div><span class="output-badge" id="outputBadge">WAITING</span></div><pre class="output-screen" id="programOutput">Your program's printed strings will appear here.</pre></section>
+        <nav class="tabs" role="tablist"><button class="tab active" data-tab="overview">Overview</button><button class="tab" data-tab="tokens">Tokens <span id="tokenCount" class="tab-count">0</span></button><button class="tab" data-tab="ast">AST</button><button class="tab" data-tab="symbols">Symbols</button></nav>
+        <div class="result-content" id="resultContent"><div class="empty-state"><div class="empty-glyph">λ</div><h3>Ready when you are</h3><p>Compile a program to inspect tokens, syntax tree, symbol table, and diagnostics.</p><div class="empty-checks"><span>01 Lexer</span><span>02 Parser</span><span>03 Semantics</span></div></div></div>
+        <div class="results-footer"><span class="footer-pulse"></span><span id="pipelineStatus">Pipeline idle</span><span class="footer-right">FLEX / BISON</span></div>
+      </article>
+    </section>
+    <footer class="app-footer"><span>StrLang · String Processing Language</span></footer>
+  </main>
+  <script src="/app.js"></script>
+</body></html>

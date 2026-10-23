@@ -1,7 +1,7 @@
-mini_compiler
-parser.tab.c
-parser.tab.h
-lex.yy.c
-*.o
+strlang
+strlang.exe
+src/parser.tab.c
+src/parser.tab.h
+src/lex.yy.c
 __pycache__/
-*.pyc
+.DS_Store
