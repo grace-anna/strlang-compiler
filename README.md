@@ -61,7 +61,7 @@ Language features:
 - `//` comments, mandatory semicolons, case-sensitive identifiers
 - Declaration-before-use, duplicate declaration, and initialization checks
 - ASCII-only source, single global scope
-- No loops, conditionals, input, comparison, or execution of source programs
+- No loops, conditionals, input, comparison, or execution of source programs.....
 
 ## Architecture
 
