@@ -1,6 +1,6 @@
 # StrLang Midnight IDE - Flex + Bison Edition
 
-A compiler front end for a custom string-processing language. The lexer is specified in Flex (`src/lexer.l`), the parser and AST/semantic actions in Bison (`src/parser.y`), and the web interface uses HTML/CSS/JavaScript with a Python standard-library HTTP server. Node.js is not used.
+Acompiler front end for a custom string-processing language. The lexer is specified in Flex (`src/lexer.l`), the parser and AST/semantic actions in Bison (`src/parser.y`), and the web interface uses HTML/CSS/JavaScript with a Python standard-library HTTP server. Node.js is not used.
 
 ## Requirements
 
